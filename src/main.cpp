@@ -33,7 +33,7 @@ int main () {
     osStatus status;
 
     red = 0;
-    canInit(BD1000000, true);
+    canInit(BD125000, true);
     pc.printf("Display -- Loopback test\n");
 
     status = reader.start(canReadTask);
