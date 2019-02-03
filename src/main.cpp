@@ -25,6 +25,7 @@ Thread reader(osPriorityRealtime1);
 static void led1Toggle(void);
 static void canWriteTask(void);
 static void canReadTask(void);
+static void canHandler(canISRData_t *);
 
 int main () {
     osStatus status;
@@ -68,13 +69,24 @@ void canWriteTask(void) {
 void canReadTask(void) {
 
   static canMessage_t rxMsg;
-  
+  static canISRData_t canData;
+
+  canData.message = &rxMsg; 
+  canData.rxDone = false;
+  canRxInterrupt(canHandler, &canData);
+
   while (true) {
-      if (canReady()) {           
-	canRead(&rxMsg);
-	pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
-	rxCount += 1;
+      if (canData.rxDone) {
+	  canData.rxDone = false;
+	  pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
+	  rxCount += 1;
       }
       wait_ms(150);
   }
 }
+
+void canHandler(canISRData_t *d) {
+    d->rxDone = true;
+}
+    
+

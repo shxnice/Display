@@ -23,7 +23,12 @@ typedef struct canMessage {
   uint32_t dataB; 
 } canMessage_t;
 
-typedef void (*canISR_t)(canMessage_t *msg);
+typedef struct canISRData {
+  bool rxDone;
+  canMessage_t *message;
+} canISRData_t;
+
+typedef void (*canISRHandler_t)(canISRData_t *d);
 /*
  * Initialises the CAN controller
  * Called by bspInit() in the standard project
@@ -69,6 +74,8 @@ uint32_t canStatus(void);
  */
 //void canRxInterrupt(pVoidFunc_t handler);
   
+void canRxInterrupt(canISRHandler_t handler, canISRData_t *data);
+
 #ifdef __cplusplus
 }
 #endif
