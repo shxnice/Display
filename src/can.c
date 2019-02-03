@@ -4,19 +4,15 @@
 #include <string.h>
 #include "can.h"
 
-/*#ifdef __cplusplus*/
-/*extern "C" {*/
-/*#endif*/
-
 #define TX_BUF_ID 8
 #define RX_BUF_ID 9
 
 static flexcan_frame_t rxFrame;
 static flexcan_handle_t fHandle;
 static flexcan_mb_transfer_t xfer;
-static canISRHandler_t user_handler;
+static void (*user_handler)(void);
 
-void canInit(bool loopback) {
+void canInit(baudRate_t baudRate, bool loopback) {
     flexcan_config_t flexcanConfig;
     flexcan_rx_mb_config_t mbconfig;
 
@@ -31,6 +27,7 @@ void canInit(bool loopback) {
     PORTB->PCR[19] |= PORT_PCR_MUX(2) | PORT_PCR_PS(1) | PORT_PCR_PE(1);
 
     FLEXCAN_GetDefaultConfig(&flexcanConfig);
+    flexcanConfig.baudRate = baudRate;
     if (loopback) {
         flexcanConfig.enableLoopBack = true;
     }
@@ -85,6 +82,14 @@ void canRead(canMessage_t *message) {
     message->dataB = rxFrame.dataWord1;
 }
 
+void canTransferRxFrame(volatile canMessage_t *message) {
+    memset((canMessage_t *)message, 0, sizeof(canMessage_t));
+    message->id = (rxFrame.id >> CAN_ID_STD_SHIFT);
+    message->len = rxFrame.length;
+    message->dataA = rxFrame.dataWord0;
+    message->dataB = rxFrame.dataWord1;
+}
+
 bool canReady(void) {
     if (FLEXCAN_GetMbStatusFlags(CAN0, 1 << RX_BUF_ID)) {
         return true;
@@ -94,30 +99,24 @@ bool canReady(void) {
     }
 }
 
+uint32_t canStatus(void) {
+    return 0;
+}
+
 static void flexcan_callback(CAN_Type *base, flexcan_handle_t *handle, 
                              status_t status, uint32_t result, void *userData) {
 
-    canISRData_t *d = (canISRData_t *)userData;
-
     if ((kStatus_FLEXCAN_RxIdle == status) && (RX_BUF_ID == result)) {
-        d->message->id = (rxFrame.id >> CAN_ID_STD_SHIFT);
-        d->message->len = rxFrame.length;
-        d->message->dataA = rxFrame.dataWord0;
-        d->message->dataB = rxFrame.dataWord1;
         FLEXCAN_TransferReceiveNonBlocking(CAN0, &fHandle, &xfer);
-        user_handler(d);
+        user_handler();
     }
 }
     
-
-void canRxInterrupt(canISRHandler_t handler, canISRData_t *data) {
+void canRxInterrupt(void (*handler)(void)) {
     user_handler = handler;
-    FLEXCAN_TransferCreateHandle(CAN0, &fHandle, flexcan_callback, data);
+    FLEXCAN_TransferCreateHandle(CAN0, &fHandle, flexcan_callback, NULL);
     xfer.frame = &rxFrame; 
     xfer.mbIdx = RX_BUF_ID;
     FLEXCAN_TransferReceiveNonBlocking(CAN0, &fHandle, &xfer); 
 }
-    /*#ifdef __cplusplus*/
-/*}*/
-/*#endif*/
 

@@ -16,8 +16,10 @@
 
 static DigitalOut red(LED_RED);
 static Serial pc(USBTX, USBRX, 115200);
-uint32_t txCount;
-uint32_t rxCount;
+static uint32_t txCount;
+static uint32_t rxCount;
+static volatile canMessage_t rxMsg;
+static Semaphore msgAvailable;
 
 Thread writer(osPriorityRealtime);
 Thread reader(osPriorityRealtime1);
@@ -25,13 +27,13 @@ Thread reader(osPriorityRealtime1);
 static void led1Toggle(void);
 static void canWriteTask(void);
 static void canReadTask(void);
-static void canHandler(canISRData_t *);
+static void canHandler(void);
 
 int main () {
     osStatus status;
 
     red = 0;
-    canInit(true);
+    canInit(BD1000000, true);
     pc.printf("Display -- Loopback test\n");
 
     status = reader.start(canReadTask);
@@ -67,26 +69,18 @@ void canWriteTask(void) {
 }
 
 void canReadTask(void) {
-
-  static canMessage_t rxMsg;
-  static canISRData_t canData;
-
-  canData.message = &rxMsg; 
-  canData.rxDone = false;
-  canRxInterrupt(canHandler, &canData);
+  canRxInterrupt(canHandler);
 
   while (true) {
-      if (canData.rxDone) {
-	  canData.rxDone = false;
-	  pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
-	  rxCount += 1;
-      }
-      wait_ms(150);
+      msgAvailable.wait();
+      pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
+      rxCount += 1;
   }
 }
 
-void canHandler(canISRData_t *d) {
-    d->rxDone = true;
+void canHandler(void) {
+    canTransferRxFrame(&rxMsg);
+    msgAvailable.release();
 }
     
 

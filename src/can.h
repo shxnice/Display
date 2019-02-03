@@ -16,6 +16,15 @@
 extern "C" {
 #endif
 
+typedef enum {
+  BD50000 = 50000UL,
+  BD100000 = 100000UL,
+  BD125000 = 125000UL,
+  BD250000 = 250000UL,
+  BD500000 = 500000UL,
+  BD1000000 = 1000000UL
+} baudRate_t;
+
 typedef struct canMessage {
   uint32_t id;
   uint32_t len;
@@ -23,21 +32,19 @@ typedef struct canMessage {
   uint32_t dataB; 
 } canMessage_t;
 
-typedef struct canISRData {
-  bool rxDone;
-  canMessage_t *message;
-} canISRData_t;
-
-typedef void (*canISRHandler_t)(canISRData_t *d);
 /*
  * Initialises the CAN controller
- * Called by bspInit() in the standard project
- * configuration.
+ * @param baud - specifies the baud rate
+ *   must be a member of baudRate_t
+ * @param loopback - true => transmitted messages looped back to same controller
+ *                   false => transmission without loopback
  */
-void canInit(bool loopback);
+void canInit(baudRate_t baud, bool loopback);
 
 
 /*
+ * Blocking CAN write and CAN read
+ *
  * Note that the CAN message data fields dataA and dataB
  * are written and read in little-endian order on the FRDM-K64F
  * e.g. the values dataA = 0x04030201 and dataB = 0x08070605
@@ -57,15 +64,19 @@ void canInit(bool loopback);
 bool canWrite(canMessage_t *message);
 void canRead(canMessage_t *message);
 
+/* Transfers the most recently received CAN rxFrame
+ * to the canMessage_t whose address is message
+ */ 
+void canTransferRxFrame(volatile canMessage_t *message);
 
 /* Returns true if there is data ready to be read from
- * CAN port 'port'; otherwise returns false
+ * the CAN port; otherwise returns false
  */
 bool canReady(void);
 
-
 /*
  * Returns the value of the CAN status register 
+ * Not yet implemented
  */
 uint32_t canStatus(void);
 
@@ -74,7 +85,7 @@ uint32_t canStatus(void);
  */
 //void canRxInterrupt(pVoidFunc_t handler);
   
-void canRxInterrupt(canISRHandler_t handler, canISRData_t *data);
+void canRxInterrupt(void (*handler)(void));
 
 #ifdef __cplusplus
 }
