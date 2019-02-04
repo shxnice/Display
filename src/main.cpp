@@ -19,7 +19,7 @@ static Serial pc(USBTX, USBRX, 115200);
 static uint32_t txCount;
 static uint32_t rxCount;
 static volatile canMessage_t rxMsg;
-static Semaphore msgAvailable;
+static volatile bool rxDone;
 
 Thread writer(osPriorityRealtime);
 Thread reader(osPriorityRealtime1);
@@ -51,9 +51,12 @@ static void led1Toggle(void) {
   red = 1 - red;
 }
 
+/* Transmit CAN message with arbitrary id and 8 bytes of
+ * data consisting of a repeated count of the number of transmitted messages
+ */ 
 void canWriteTask(void) {
   
-  static canMessage_t txMsg = {0x23, 8, 0, 0};
+  static canMessage_t txMsg = {0x23, 8, 0, 0}; 
   bool txOk;
     
   while (true) {
@@ -68,19 +71,24 @@ void canWriteTask(void) {
   }
 }
 
+/* Read and display messages arriving on the CAN port */
 void canReadTask(void) {
-  canRxInterrupt(canHandler);
+  canRxInterrupt(canHandler); // configure CAN to interrupt on message reception
 
+  rxDone = false;
   while (true) {
-      msgAvailable.wait();
-      pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
-      rxCount += 1;
+      if (rxDone) { // rxDone could be better handled by a semaphore
+	rxDone = false;
+        pc.printf("ID: 0x%lx LEN: 0x%01lx DATA_A: 0x%08lx DATA_B: 0x%08lx\n", rxMsg.id, rxMsg.len, rxMsg.dataA, rxMsg.dataB); 
+        rxCount += 1;
+      }
+      wait_ms(100);
   }
 }
 
+/* A simple interrupt handler for CAN message reception */
 void canHandler(void) {
     canTransferRxFrame(&rxMsg);
-    msgAvailable.release();
+    rxDone = true;
 }
     
-

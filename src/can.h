@@ -43,7 +43,8 @@ void canInit(baudRate_t baud, bool loopback);
 
 
 /*
- * Blocking CAN write and CAN read
+ * Blocking CAN write. CAN read based on test for data
+ * available (canReady()) followed by retrieval (canRead())
  *
  * Note that the CAN message data fields dataA and dataB
  * are written and read in little-endian order on the FRDM-K64F
