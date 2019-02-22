@@ -33,7 +33,7 @@ int main () {
     osStatus status;
 
     red = 0;
-    canInit(BD125000, false);
+    canInit(BD125000, true);
     pc.printf("Display -- Loopback test\n");
 
     status = reader.start(canReadTask);
@@ -56,7 +56,7 @@ static void led1Toggle(void) {
  */ 
 void canWriteTask(void) {
   
-  static canMessage_t txMsg = {0x22, 8, 0, 0}; 
+  static canMessage_t txMsg = {0x23, 8, 0, 0}; 
   bool txOk;
     
   while (true) {
